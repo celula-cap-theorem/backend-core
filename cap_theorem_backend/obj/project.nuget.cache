@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "dgSpecHash": "ag0PPTQ3A1o=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\diego\\Development\\Riwi\\Code\\Complementos\\cap_theorem\\cap_theorem_backend\\cap_theorem_backend\\cap_theorem_backend.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\diego\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.5\\microsoft.aspnetcore.openapi.10.0.5.nupkg.sha512",
+    "C:\\Users\\diego\\.nuget\\packages\\microsoft.dotnet.ilcompiler\\10.0.5\\microsoft.dotnet.ilcompiler.10.0.5.nupkg.sha512",
+    "C:\\Users\\diego\\.nuget\\packages\\microsoft.net.illink.tasks\\10.0.5\\microsoft.net.illink.tasks.10.0.5.nupkg.sha512",
+    "C:\\Users\\diego\\.nuget\\packages\\microsoft.openapi\\2.0.0\\microsoft.openapi.2.0.0.nupkg.sha512",
+    "C:\\Users\\diego\\.nuget\\packages\\runtime.win-x64.microsoft.dotnet.ilcompiler\\10.0.5\\runtime.win-x64.microsoft.dotnet.ilcompiler.10.0.5.nupkg.sha512",
+    "C:\\Users\\diego\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\10.0.5\\microsoft.netcore.app.runtime.win-x64.10.0.5.nupkg.sha512",
+    "C:\\Users\\diego\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\10.0.5\\microsoft.windowsdesktop.app.runtime.win-x64.10.0.5.nupkg.sha512",
+    "C:\\Users\\diego\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\10.0.5\\microsoft.aspnetcore.app.runtime.win-x64.10.0.5.nupkg.sha512",
+    "C:\\Users\\diego\\.nuget\\packages\\microsoft.netcore.app.runtime.nativeaot.win-x64\\10.0.5\\microsoft.netcore.app.runtime.nativeaot.win-x64.10.0.5.nupkg.sha512",
+    "C:\\Users\\diego\\.nuget\\packages\\runtime.win-x64.microsoft.dotnet.ilcompiler\\10.0.5\\runtime.win-x64.microsoft.dotnet.ilcompiler.10.0.5.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "Package 'Microsoft.OpenApi' 2.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-v5pm-xwqc-g5wc",
+      "projectPath": "C:\\Users\\diego\\Development\\Riwi\\Code\\Complementos\\cap_theorem\\cap_theorem_backend\\cap_theorem_backend\\cap_theorem_backend.csproj",
+      "warningLevel": 1,
+      "filePath": "C:\\Users\\diego\\Development\\Riwi\\Code\\Complementos\\cap_theorem\\cap_theorem_backend\\cap_theorem_backend\\cap_theorem_backend.csproj",
+      "libraryId": "Microsoft.OpenApi",
+      "targetGraphs": [
+        "net10.0",
+        "net10.0/win-x64"
+      ]
+    }
+  ]
+}

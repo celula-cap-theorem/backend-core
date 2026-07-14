@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cap_theorem_backend", "cap_theorem_backend\cap_theorem_backend.csproj", "{E49D6ED0-94B3-4DCF-A7BA-272B0D17F7D0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E49D6ED0-94B3-4DCF-A7BA-272B0D17F7D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E49D6ED0-94B3-4DCF-A7BA-272B0D17F7D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E49D6ED0-94B3-4DCF-A7BA-272B0D17F7D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E49D6ED0-94B3-4DCF-A7BA-272B0D17F7D0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
