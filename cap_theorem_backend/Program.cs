@@ -1,15 +1,66 @@
-using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Http.HttpResults;
+using System.Text;
+using cap_theorem_backend.Interfaces;
+using cap_theorem_backend.Infrastructure;
+using cap_theorem_backend.Middleware;
+using cap_theorem_backend.Repositories;
+using cap_theorem_backend.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.IdentityModel.Tokens;
+using System.Threading.RateLimiting;
 
-var builder = WebApplication.CreateSlimBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.ConfigureHttpJsonOptions(options =>
+builder.Services.AddControllers();
+builder.Services.AddOpenApi();
+builder.Services.AddMemoryCache();
+
+// --- JWT authentication ---
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? string.Empty))
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+// --- Rate limiting (per IP) ---
+builder.Services.AddRateLimiter(options =>
 {
-    options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default);
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("PerIpPolicy", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// --- Dependency injection ---
+// Control plane: always against the catalog.
+builder.Services.AddScoped<ICatalogRepository, CatalogRepository>();
+
+// Data plane: scoped context + factory that resolves the current tenant's connection.
+builder.Services.AddScoped<ITenantContext, TenantContext>();
+builder.Services.AddScoped<ITenantConnectionFactory, TenantConnectionFactory>();
+builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+
+builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
 var app = builder.Build();
 
@@ -18,30 +69,19 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-Todo[] sampleTodos =
-[
-    new(1, "Walk the dog"),
-    new(2, "Do the dishes", DateOnly.FromDateTime(DateTime.Now)),
-    new(3, "Do the laundry", DateOnly.FromDateTime(DateTime.Now.AddDays(1))),
-    new(4, "Clean the bathroom"),
-    new(5, "Clean the car", DateOnly.FromDateTime(DateTime.Now.AddDays(2)))
-];
+app.UseHttpsRedirection();
 
-var todosApi = app.MapGroup("/todos");
-todosApi.MapGet("/", () => sampleTodos)
-    .WithName("GetTodos");
+// Resolves cell/tenant BEFORE MVC routing: it operates on the raw path,
+// so its order relative to UseRouting isn't critical, but it must run
+// before UseAuthorization (in case a future policy needs ITenantContext
+// already populated).
+app.UseTenantResolution();
 
-todosApi.MapGet("/{id}", Results<Ok<Todo>, NotFound> (int id) =>
-        sampleTodos.FirstOrDefault(a => a.Id == id) is { } todo
-            ? TypedResults.Ok(todo)
-            : TypedResults.NotFound())
-    .WithName("GetTodoById");
+app.UseRateLimiter();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers().RequireRateLimiting("PerIpPolicy");
 
 app.Run();
-
-public record Todo(int Id, string? Title, DateOnly? DueBy = null, bool IsComplete = false);
-
-[JsonSerializable(typeof(Todo[]))]
-internal partial class AppJsonSerializerContext : JsonSerializerContext
-{
-}
