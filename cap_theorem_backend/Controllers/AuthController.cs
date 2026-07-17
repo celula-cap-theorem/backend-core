@@ -1,60 +1,80 @@
-using BCrypt.Net;
+using System.Security.Claims;
 using cap_theorem_backend.Interfaces;
 using cap_theorem_backend.DTOs.Auth;
 using cap_theorem_backend.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Google;
+using AspNet.Security.OAuth.GitHub;
 using Microsoft.AspNetCore.Mvc;
 
 namespace cap_theorem_backend.Controllers;
 
-/// <summary>
-/// PUBLIC authentication flow for normal users (a cell's students).
-/// Unrelated to /api/admin/auth: these are separate flows on purpose, to
-/// avoid any surface for escalating into superadmin.
-/// </summary>
 [ApiController]
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
-    private readonly ICatalogRepository _catalogRepository;
+    private readonly IUserRepository _userRepository;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IMySqlProvisioningService _provisioningService;
+    private readonly IConfiguration _config;
 
-    public AuthController(ICatalogRepository catalogRepository, IJwtTokenService jwtTokenService)
+    public AuthController(
+        IUserRepository userRepository,
+        IJwtTokenService jwtTokenService,
+        IMySqlProvisioningService provisioningService,
+        IConfiguration config)
     {
-        _catalogRepository = catalogRepository;
+        _userRepository = userRepository;
         _jwtTokenService = jwtTokenService;
+        _provisioningService = provisioningService;
+        _config = config;
     }
 
-    [HttpPost("register")]
-    public async Task<ActionResult> Register([FromBody] RegisterUserRequest request)
+    [HttpGet("google")]
+    public IActionResult GoogleLogin() =>
+        Challenge(new AuthenticationProperties { RedirectUri = "/api/auth/callback/google" },
+            GoogleDefaults.AuthenticationScheme);
+
+    [HttpGet("github")]
+    public IActionResult GitHubLogin() =>
+        Challenge(new AuthenticationProperties { RedirectUri = "/api/auth/callback/github" },
+            GitHubAuthenticationDefaults.AuthenticationScheme);
+
+    [HttpGet("callback/google")]
+    public Task<IActionResult> GoogleCallback() => HandleExternalCallback("Google");
+
+    [HttpGet("callback/github")]
+    public Task<IActionResult> GitHubCallback() => HandleExternalCallback("GitHub");
+
+    private async Task<IActionResult> HandleExternalCallback(string provider)
     {
-        var existing = await _catalogRepository.GetCredentialsByEmailAsync(request.Email);
-        if (existing is not null)
+        var result = await HttpContext.AuthenticateAsync("External");
+        if (!result.Succeeded || result.Principal is null)
+            return Unauthorized(new { error = "OAuth handshake failed." });
+
+        var claims = result.Principal;
+        var providerUserId = claims.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var email = claims.FindFirstValue(ClaimTypes.Email)!;
+        var name = claims.FindFirstValue(ClaimTypes.Name) ?? email;
+        var avatar = claims.Claims.FirstOrDefault(c =>
+            c.Type is "urn:google:picture" or "urn:github:avatar")?.Value;
+
+        var (user, isNew) = await _userRepository.UpsertOAuthUserAsync(provider, providerUserId, email, name, avatar);
+
+        if (isNew)
         {
-            return Conflict(new { error = "A user with that email already exists." });
+            var slot = await _userRepository.ReserveDatabaseSlotAsync(user.UserId);
+            var (dbUser, password) = _provisioningService.GenerateCredentials(slot.DbUser);
+            await _provisioningService.CreateDatabaseAsync(slot.DbName, dbUser, password);
+            await _userRepository.ConfirmProvisioningAsync(
+                user.UserId, slot.DbName, dbUser,
+                _provisioningService.Encrypt(password), slot.Host, slot.Port, "MySQL");
         }
 
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
-        var userId = await _catalogRepository.RegisterUserAsync(request.Email, passwordHash, request.TenantId);
+        var (token, expiresAt) = _jwtTokenService.GenerateUserToken(user.UserId, user.Email, tenantId: user.UserId);
+        await HttpContext.SignOutAsync("External");
 
-        return CreatedAtAction(nameof(Register), new { Id = userId });
-    }
-
-    [HttpPost("login")]
-    public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request)
-    {
-        var user = await _catalogRepository.GetCredentialsByEmailAsync(request.Email);
-        if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-        {
-            return Unauthorized(new { error = "Invalid credentials." });
-        }
-
-        if (user.TenantId is null)
-        {
-            // Should never happen: a normal user always belongs to a tenant.
-            return Unauthorized(new { error = "Account has no associated tenant." });
-        }
-
-        var (token, expiresAt) = _jwtTokenService.GenerateUserToken(user.UserId, user.Email, user.TenantId.Value);
-        return Ok(new AuthResponse(token, expiresAt));
+        var redirect = $"{_config["Frontend:PostLoginRedirect"]}?token={token}&expires={expiresAt:o}";
+        return Redirect(redirect);
     }
 }

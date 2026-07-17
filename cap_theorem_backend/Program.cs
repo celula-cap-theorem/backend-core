@@ -8,6 +8,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Google;
+using AspNet.Security.OAuth.GitHub;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,8 +34,26 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? string.Empty))
         };
+    })
+    .AddCookie("External")
+    .AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
+    {
+        options.SignInScheme = "External";
+        options.ClientId = builder.Configuration["Authentication:Google:ClientId"]!;
+        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]!;
+        options.CallbackPath = "/api/auth/callback/google";
+    })
+    .AddGitHub(GitHubAuthenticationDefaults.AuthenticationScheme, options =>
+    {
+        options.SignInScheme = "External";
+        options.ClientId = builder.Configuration["Authentication:GitHub:ClientId"]!;
+        options.ClientSecret = builder.Configuration["Authentication:GitHub:ClientSecret"]!;
+        options.CallbackPath = "/api/auth/callback/github";
+        options.Scope.Add("user:email");
     });
 
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IMySqlProvisioningService, MySqlProvisioningService>();
 builder.Services.AddAuthorization();
 
 // --- Rate limiting (per IP) ---
