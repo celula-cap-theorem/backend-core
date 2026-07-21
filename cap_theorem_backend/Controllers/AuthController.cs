@@ -41,10 +41,10 @@ public class AuthController : ControllerBase
             GitHubAuthenticationDefaults.AuthenticationScheme);
 
     [HttpGet("callback/google")]
-    public Task<IActionResult> GoogleCallback() => HandleExternalCallback("Google");
+    public Task<IActionResult> GoogleCallback() => HandleExternalCallback("google");
 
     [HttpGet("callback/github")]
-    public Task<IActionResult> GitHubCallback() => HandleExternalCallback("GitHub");
+    public Task<IActionResult> GitHubCallback() => HandleExternalCallback("github");
 
     private async Task<IActionResult> HandleExternalCallback(string provider)
     {
@@ -58,20 +58,33 @@ public class AuthController : ControllerBase
         var name = claims.FindFirstValue(ClaimTypes.Name) ?? email;
         var avatar = claims.Claims.FirstOrDefault(c =>
             c.Type is "urn:google:picture" or "urn:github:avatar")?.Value;
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
 
-        var (user, isNew) = await _userRepository.UpsertOAuthUserAsync(provider, providerUserId, email, name, avatar);
+        // sp_RegisterOrUpdateUser decide internamente si es alta o solo
+        // actualización de LastLoginAt; el backend no contiene esa regla.
+        var user = await _userRepository.RegisterOrUpdateUserAsync(provider, providerUserId, name, email, avatar, ip);
 
-        if (isNew)
+        if (!user.IsExistingUser)
         {
-            var slot = await _userRepository.ReserveDatabaseSlotAsync(user.UserId);
-            var (dbUser, password) = _provisioningService.GenerateCredentials(slot.DbUser);
-            await _provisioningService.CreateDatabaseAsync(slot.DbName, dbUser, password);
-            await _userRepository.ConfirmProvisioningAsync(
-                user.UserId, slot.DbName, dbUser,
-                _provisioningService.Encrypt(password), slot.Host, slot.Port, "MySQL");
+            var mysqlHost = _config["MySqlAdmin:Host"]!;
+            var plainPassword = _provisioningService.GenerateSecurePassword();
+
+            // sp_ProvisionDatabase genera DbName/DbUser (fn_GenerateDbName),
+            // cifra y guarda la contraseña, y registra el Pending.
+            var slot = await _userRepository.ProvisionDatabaseAsync(user.UserId, mysqlHost, plainPassword, ip);
+
+            try
+            {
+                await _provisioningService.CreateDatabaseAsync(slot.DatabaseName, slot.MysqlUsername, plainPassword);
+                await _userRepository.ConfirmProvisioningAsync(slot.DatabaseId, success: true, errorDetail: null);
+            }
+            catch (Exception ex)
+            {
+                await _userRepository.ConfirmProvisioningAsync(slot.DatabaseId, success: false, errorDetail: ex.Message);
+            }
         }
 
-        var (token, expiresAt) = _jwtTokenService.GenerateUserToken(user.UserId, user.Email, tenantId: user.UserId);
+        var (token, expiresAt) = _jwtTokenService.GenerateUserToken(user.UserId, email);
         await HttpContext.SignOutAsync("External");
 
         var redirect = $"{_config["Frontend:PostLoginRedirect"]}?token={token}&expires={expiresAt:o}";

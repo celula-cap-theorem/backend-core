@@ -1,11 +1,21 @@
 @cap_theorem_backend_HostAddress = http://localhost:5112
 
-GET {{cap_theorem_backend_HostAddress}}/todos/
+### Login con Google (redirige a OAuth)
+GET {{cap_theorem_backend_HostAddress}}/api/auth/google
+
+### Login con GitHub (redirige a OAuth)
+GET {{cap_theorem_backend_HostAddress}}/api/auth/github
+
+### Métricas públicas de landing
+GET {{cap_theorem_backend_HostAddress}}/api/landing/metrics
 Accept: application/json
 
-###
-
-GET {{cap_theorem_backend_HostAddress}}/todos/1
+### Dashboard del usuario autenticado
+GET {{cap_theorem_backend_HostAddress}}/api/dashboard
+Authorization: Bearer {{token}}
 Accept: application/json
 
-###
+### Ver credenciales de conexión (registra CREDENTIALS_VIEWED en AuditLog)
+GET {{cap_theorem_backend_HostAddress}}/api/databases/credentials
+Authorization: Bearer {{token}}
+Accept: application/json

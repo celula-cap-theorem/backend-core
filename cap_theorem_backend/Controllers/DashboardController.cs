@@ -14,12 +14,13 @@ public class DashboardController : ControllerBase
     private readonly IUserRepository _repo;
     public DashboardController(IUserRepository repo) => _repo = repo;
 
+    // sp_GetDashboard -> vw_UserDashboard
     [HttpGet]
     public async Task<ActionResult<DashboardDto>> Get()
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var dashboard = await _repo.GetDashboardAsync(userId);
-        return Ok(dashboard);
+        return dashboard is null ? NotFound() : Ok(dashboard);
     }
 }
 
@@ -31,11 +32,13 @@ public class DatabasesController : ControllerBase
     private readonly IUserRepository _repo;
     public DatabasesController(IUserRepository repo) => _repo = repo;
 
-    [HttpGet("mine")]
-    public async Task<ActionResult<ConnectionInfoDto>> GetMine()
+    // sp_GetCredentials -> registra CREDENTIALS_VIEWED en AuditLog con la IP
+    [HttpGet("credentials")]
+    public async Task<ActionResult<ConnectionInfoDto>> GetCredentials()
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var info = await _repo.GetUserDatabaseAsync(userId);
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var info = await _repo.GetCredentialsAsync(userId, ip);
         return info is null ? NotFound() : Ok(info);
     }
 }

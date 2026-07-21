@@ -80,7 +80,17 @@ jobs:
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
+              --network sql_server_databases \
               -p ${{ env.HOST_PORT }}:8080 \
+              -e ConnectionStrings__ProvisioningControl="${{ secrets.PROVISIONING_DB_CONNECTION }}" \
+              -e Jwt__Key="${{ secrets.JWT_KEY }}" \
+              -e Authentication__Google__ClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
+              -e Authentication__Google__ClientSecret="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+              -e Authentication__GitHub__ClientId="${{ secrets.GITHUB_OAUTH_CLIENT_ID }}" \
+              -e Authentication__GitHub__ClientSecret="${{ secrets.GITHUB_OAUTH_CLIENT_SECRET }}" \
+              -e MySqlAdmin__Host="${{ secrets.MYSQL_HOST }}" \
+              -e MySqlAdmin__ConnectionString="${{ secrets.MYSQL_ADMIN_CONNECTION }}" \
+              -e Frontend__PostLoginRedirect="${{ secrets.FRONTEND_POST_LOGIN_REDIRECT }}" \
               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
             docker image prune -f

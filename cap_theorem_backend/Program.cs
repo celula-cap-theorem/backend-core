@@ -1,7 +1,5 @@
 using System.Text;
 using cap_theorem_backend.Interfaces;
-using cap_theorem_backend.Infrastructure;
-using cap_theorem_backend.Middleware;
 using cap_theorem_backend.Repositories;
 using cap_theorem_backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -52,8 +50,6 @@ builder.Services
         options.Scope.Add("user:email");
     });
 
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IMySqlProvisioningService, MySqlProvisioningService>();
 builder.Services.AddAuthorization();
 
 // --- Rate limiting (per IP) ---
@@ -73,14 +69,10 @@ builder.Services.AddRateLimiter(options =>
 });
 
 // --- Dependency injection ---
-// Control plane: always against the catalog.
-builder.Services.AddScoped<ICatalogRepository, CatalogRepository>();
-
-// Data plane: scoped context + factory that resolves the current tenant's connection.
-builder.Services.AddScoped<ITenantContext, TenantContext>();
-builder.Services.AddScoped<ITenantConnectionFactory, TenantConnectionFactory>();
-builder.Services.AddScoped<IBookingRepository, BookingRepository>();
-
+// Único repositorio: opera contra ProvisioningControl (SQL Server) invocando
+// exclusivamente Stored Procedures. Nunca contiene reglas de negocio (DIP).
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IMySqlProvisioningService, MySqlProvisioningService>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
 var app = builder.Build();
@@ -91,12 +83,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-// Resolves cell/tenant BEFORE MVC routing: it operates on the raw path,
-// so its order relative to UseRouting isn't critical, but it must run
-// before UseAuthorization (in case a future policy needs ITenantContext
-// already populated).
-app.UseTenantResolution();
 
 app.UseRateLimiter();
 
