@@ -22,7 +22,7 @@ public class TenantResolutionMiddleware
     // Prevents name collisions and path traversal attempts.
     private static readonly Regex SlugPattern = new("^[a-z0-9-]{3,30}$", RegexOptions.Compiled);
 
-    private static readonly string[] ExcludedPrefixes = ["/api/auth", "/api/admin"];
+    private static readonly string[] ExcludedPrefixes = ["/api/auth", "/api/admin", "/api/landing", "/api/dashboard", "/api/databases"];
 
     private readonly RequestDelegate _next;
     private readonly IMemoryCache _cache;

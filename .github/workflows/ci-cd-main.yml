@@ -74,13 +74,16 @@ jobs:
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
+            docker network connect sql_server_databases ${{ env.CONTAINER_NAME }} 2>/dev/null || true
             docker stop ${{ env.CONTAINER_NAME }} || true
             docker rm ${{ env.CONTAINER_NAME }} || true
 
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
+              --network sql_server_databases \
               -p ${{ env.HOST_PORT }}:8080 \
+              -v /home/diego/config/backend/appsettings.Production.json:/app/appsettings.Production.json \
               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
             docker image prune -f
