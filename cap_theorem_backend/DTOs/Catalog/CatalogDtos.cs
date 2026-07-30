@@ -31,9 +31,14 @@ public record CreateTenantRequest(int CellId, string Slug);
 /// Internal result of resolving cell+tenant to a physical connection.
 /// This DTO never leaves the backend over HTTP; it only flows between
 /// the middleware, ITenantContext and ITenantConnectionFactory.
+/// The password is encrypted and must be decrypted by the middleware.
 /// </summary>
 public record TenantConnectionInfo(
     int TenantId,
-    string ConnectionString,
+    string Host,
+    int Port,
+    string DbName,
+    string DbUser,
+    string PasswordEncrypted,
     bool IsActive
 );

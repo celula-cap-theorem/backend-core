@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using cap_theorem_backend.Interfaces;
 using cap_theorem_backend.DTOs.Auth;
+using cap_theorem_backend.Services;
 
 namespace cap_theorem_backend.Controllers;
 
@@ -29,13 +30,21 @@ public class DashboardController : ControllerBase
 public class DatabasesController : ControllerBase
 {
     private readonly IUserRepository _repo;
-    public DatabasesController(IUserRepository repo) => _repo = repo;
+    private readonly IMySqlProvisioningService _provisioning;
+    public DatabasesController(IUserRepository repo, IMySqlProvisioningService provisioning)
+    {
+        _repo = repo;
+        _provisioning = provisioning;
+    }
 
     [HttpGet("mine")]
     public async Task<ActionResult<ConnectionInfoDto>> GetMine()
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var info = await _repo.GetUserDatabaseAsync(userId);
-        return info is null ? NotFound() : Ok(info);
+        if (info is null) return NotFound();
+
+        var decrypted = info with { Password = _provisioning.Decrypt(info.Password) };
+        return Ok(decrypted);
     }
 }

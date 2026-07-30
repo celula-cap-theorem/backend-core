@@ -6,12 +6,6 @@ using Dapper;
 
 namespace cap_theorem_backend.Repositories;
 
-/// <summary>
-/// Illustrative example of a DATA-PLANE repository. Never opens its own
-/// connection: always requests one from ITenantConnectionFactory, which
-/// already points to the correct tenant database for the current request.
-/// Only invokes stored procedures, never builds dynamic SQL.
-/// </summary>
 public class BookingRepository : IBookingRepository
 {
     private readonly ITenantConnectionFactory _connectionFactory;

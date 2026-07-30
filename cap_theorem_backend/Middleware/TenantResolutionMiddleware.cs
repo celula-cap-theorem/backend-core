@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using cap_theorem_backend.Interfaces;
 using cap_theorem_backend.Infrastructure;
+using cap_theorem_backend.Services;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace cap_theorem_backend.Middleware;
@@ -32,7 +33,7 @@ public class TenantResolutionMiddleware
         _cache = cache;
     }
 
-    public async Task InvokeAsync(HttpContext context, ICatalogRepository catalogRepository, ITenantContext tenantContext)
+    public async Task InvokeAsync(HttpContext context, ICatalogRepository catalogRepository, ITenantContext tenantContext, IMySqlProvisioningService provisioning)
     {
         var path = context.Request.Path.Value ?? string.Empty;
 
@@ -84,7 +85,9 @@ public class TenantResolutionMiddleware
             return;
         }
 
-        tenantContext.Set(connectionInfo.TenantId, cellSlug, tenantSlug, connectionInfo.ConnectionString);
+        var password = provisioning.Decrypt(connectionInfo.PasswordEncrypted);
+        var connString = $"Server={connectionInfo.Host};Port={connectionInfo.Port};Database={connectionInfo.DbName};Uid={connectionInfo.DbUser};Pwd={password};AllowUserVariables=True;DefaultCommandTimeout=30;";
+        tenantContext.Set(connectionInfo.TenantId, cellSlug, tenantSlug, connString);
 
         await _next(context);
     }

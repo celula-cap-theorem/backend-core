@@ -1,17 +1,10 @@
-using System.Data;
-using Microsoft.Data.SqlClient;
+using MySqlConnector;
 
 namespace cap_theorem_backend.Infrastructure;
 
-/// <summary>
-/// Single entry point to TENANT databases (data plane). Data-plane
-/// repositories (e.g. IBookingRepository) never open a SqlConnection
-/// directly: they always request one from this factory, which reads the
-/// connection string already resolved on ITenantContext.
-/// </summary>
 public interface ITenantConnectionFactory
 {
-    IDbConnection GetConnection();
+    MySqlConnection GetConnection();
 }
 
 public class TenantConnectionFactory : ITenantConnectionFactory
@@ -23,7 +16,7 @@ public class TenantConnectionFactory : ITenantConnectionFactory
         _tenantContext = tenantContext;
     }
 
-    public IDbConnection GetConnection()
+    public MySqlConnection GetConnection()
     {
         if (!_tenantContext.IsResolved)
         {
@@ -33,6 +26,6 @@ public class TenantConnectionFactory : ITenantConnectionFactory
                 "or does the route not include {cell}/{tenant}?");
         }
 
-        return new SqlConnection(_tenantContext.ConnectionString);
+        return new MySqlConnection(_tenantContext.ConnectionString);
     }
 }

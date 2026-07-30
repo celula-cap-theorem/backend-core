@@ -1,0 +1,38 @@
+version: "3.9"
+
+networks:
+  proxy:
+    external: true
+
+services:
+  backend:
+    image: ghcr.io/celula-cap-theorem/backend-core:latest
+    container_name: cap-theorem-backend
+    restart: unless-stopped
+    expose:
+      - "8080"
+    networks:
+      - proxy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__Catalog=${CATALOG_CONNECTION_STRING}
+      - Jwt__Key=${JWT_KEY}
+      - Jwt__Issuer=cap-theorem-backend
+      - Jwt__Audience=cap-theorem-clients
+      - Authentication__Google__ClientId=${GOOGLE_CLIENT_ID}
+      - Authentication__Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
+      - Authentication__GitHub__ClientId=${GITHUB_CLIENT_ID}
+      - Authentication__GitHub__ClientSecret=${GITHUB_CLIENT_SECRET}
+      - MySqlAdmin__ConnectionString=${MYSQL_ADMIN_CONNECTION_STRING}
+      - Encryption__Key=${ENCRYPTION_KEY}
+      - Frontend__PostLoginRedirect=https://alpha.celula-cap-theorem.andrescortes.dev/auth/callback
+
+  frontend:
+    image: ghcr.io/celula-cap-theorem/frontend-landing:latest
+    container_name: cap-theorem-frontend
+    restart: unless-stopped
+    expose:
+      - "3000"
+    networks:
+      - proxy
