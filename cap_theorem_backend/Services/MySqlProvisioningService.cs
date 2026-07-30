@@ -27,6 +27,36 @@ public class MySqlProvisioningService : IMySqlProvisioningService
     public (string, string) GenerateCredentials(string dbUser) =>
         (dbUser, Convert.ToBase64String(RandomNumberGenerator.GetBytes(24)));
 
+    private const string TenantSchema = """
+        CREATE TABLE IF NOT EXISTS Bookings (
+            Id          INT             AUTO_INCREMENT PRIMARY KEY,
+            `Date`      DATETIME        NOT NULL,
+            CustomerId  INT             NOT NULL,
+            ResourceId  INT             NOT NULL,
+            CreatedAt   TIMESTAMP       DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB;
+
+        CREATE PROCEDURE IF NOT EXISTS sp_CreateBooking(
+            IN p_Date DATETIME,
+            IN p_CustomerId INT,
+            IN p_ResourceId INT
+        )
+        BEGIN
+            INSERT INTO Bookings (`Date`, CustomerId, ResourceId)
+            VALUES (p_Date, p_CustomerId, p_ResourceId);
+            SELECT Id, `Date`, CustomerId, ResourceId
+            FROM Bookings
+            WHERE Id = LAST_INSERT_ID();
+        END;
+
+        CREATE PROCEDURE IF NOT EXISTS sp_ListBookings()
+        BEGIN
+            SELECT Id, `Date`, CustomerId, ResourceId
+            FROM Bookings
+            ORDER BY `Date` DESC;
+        END;
+        """;
+
     public async Task CreateDatabaseAsync(string dbName, string dbUser, string password)
     {
         using var conn = new MySqlConnection(_adminConnectionString);
@@ -36,6 +66,8 @@ public class MySqlProvisioningService : IMySqlProvisioningService
         await conn.ExecuteAsync(sql, new { pass = password });
         var grantSql = $"GRANT ALL PRIVILEGES ON `{dbName.Replace("`", "``")}`.* TO `{dbUser.Replace("`", "``")}`@'%'";
         await conn.ExecuteAsync(grantSql);
+        await conn.ChangeDatabaseAsync(dbName);
+        await conn.ExecuteAsync(TenantSchema);
     }
 
     public string Encrypt(string plainText)
